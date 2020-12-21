@@ -10,7 +10,7 @@
 
 Fractal::Fractal()
 {
-	mode = FractalSets::JULIA;
+	mode = FractalSets::MANDELBROT;
 
 	x_offset = 0.0;
 	y_offset = 0.0;

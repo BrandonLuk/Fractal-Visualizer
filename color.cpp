@@ -23,7 +23,7 @@ uint8_t sat_sub_u8b(uint8_t l, uint8_t r)
 ColorGenerator::ColorGenerator()
 {
 	mode = Generators::HISTOGRAM;
-	weak = Color{ 0, 0, 100 };
+	weak = Color{ 50, 100, 25 };
 	strong = Color{ 255, 255, 255 };
 }
 
