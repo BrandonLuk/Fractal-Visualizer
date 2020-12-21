@@ -1,3 +1,12 @@
+/*
+* Graphic visualizer of various fractal sets.
+* 
+* Uses GLFW and OpenGL.
+* 
+* 
+* Brandon Luk
+*/
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
@@ -13,7 +22,7 @@
 
 #include <iomanip>
 
-
+// For timing
 #define START_TIMER auto start = std::chrono::steady_clock::now();
 #define END_TIMER   auto dur = std::chrono::steady_clock::now() - start; \
                     std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() << std::endl;
@@ -21,17 +30,22 @@
 unsigned int WINDOW_WIDTH = 1280;
 unsigned int WINDOW_HEIGHT = 720;
 
-
-
+////////////////////////////////////////////////////////////
+/// OpenGL resources
+////////////////////////////////////////////////////////////
 
 GLuint gl_textureId;
 GLuint gl_pbo;
 GLubyte* gl_textureBufData;
 
+////////////////////////////////////////////////////////////
+/// Fratal resources
+////////////////////////////////////////////////////////////
+
 Fractal fractal;
 ColorGenerator cg;
 
-bool update_fractal = false;
+bool update_fractal = false; // Keeps track of when the fractal has changed, so that we dont render the same fractal multiple times
 
 ////////////////////////////////////////////////////////////
 /// Key press flags
@@ -92,7 +106,6 @@ void initGL()
 
     gl_textureBufData = new GLubyte[(size_t)WINDOW_WIDTH * WINDOW_HEIGHT * 4];
 
-
     glGenTextures(1, &gl_textureId);
     glBindTexture(GL_TEXTURE_2D, gl_textureId);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -118,24 +131,19 @@ void panWindowFrame()
         fractal.panDown();
     if (d_key_pressed)
         fractal.panRight();
-
 }
 
 void render()
 {
     update_fractal = false;
     
-
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gl_pbo);
     glBufferData(GL_PIXEL_UNPACK_BUFFER, (size_t)WINDOW_WIDTH * WINDOW_HEIGHT * 4, 0, GL_STREAM_DRAW);
     GLubyte* ptr = (GLubyte*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
-    //glColor3f(1.0f, 1.0f, 1.0f);
 
-    // ABGR
     int* ptr_i = (int*)ptr;
-    fractal.coloredMandelbrotMatrix(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg);
+    fractal.generate(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg);
     
-
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
     glBindTexture(GL_TEXTURE_2D, gl_textureId);
@@ -145,7 +153,8 @@ void render()
 
     glClear(GL_COLOR_BUFFER_BIT);
 
-    //glBindTexture(GL_TEXTURE_2D, gl_textureId);
+
+    // Draw fullscreen quad with texture on it
     glBegin(GL_QUADS);
     glTexCoord2f(0.0f, 0.0f); glVertex2f(-1.0f, -1.0f);
     glTexCoord2f(1.0f, 0.0f); glVertex2f(1.0f, -1.0f);
@@ -165,7 +174,7 @@ int main(void)
         return -1;
 
     /* Create a windowed mode window and its OpenGL context */
-    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Hello World", NULL, NULL);
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Fractal Visualizer - Brandon Luk", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -178,15 +187,8 @@ int main(void)
 
     initGL();
 
-    //glfwSetScrollCallback(window, scroll_callback);
+    glfwSetScrollCallback(window, scroll_callback);
     glfwSetKeyCallback(window, key_callback);
-
-
-    /*glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glOrtho(0, WINDOW_WIDTH, 0, WINDOW_HEIGHT, -1, 1);
-    glDisable(GL_DEPTH_TEST);*/
 
     update_fractal = true;
 
@@ -201,14 +203,13 @@ int main(void)
             glfwSwapBuffers(window);
         }
 
-        /* Swap front and back buffers */
-        
-
         /* Poll for and process events */
         glfwPollEvents();
         panWindowFrame();
     }
 
+    glDeleteBuffers(1, &gl_pbo);
+    delete gl_textureBufData;
     glfwTerminate();
     return 0;
 }

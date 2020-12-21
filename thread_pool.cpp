@@ -19,6 +19,9 @@ ThreadPool::~ThreadPool()
 	joinThreads();
 }
 
+
+// Each thread will loop forever, waiting on the job queue for its next task.
+// When it sees a task it will execute it.
 void ThreadPool::threadWork()
 {
 	std::function<void()> job;

@@ -1,3 +1,7 @@
+/*
+* Declares a singleton thread pool which can be passed jobs in the form of std::functions<>'s.
+*/
+
 #pragma once
 
 #include <atomic>

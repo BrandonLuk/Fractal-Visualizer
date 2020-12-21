@@ -10,6 +10,8 @@
 
 Fractal::Fractal()
 {
+	mode = FractalSets::JULIA;
+
 	x_offset = 0.0;
 	y_offset = 0.0;
 	zoom_degree = 1.0;
@@ -18,11 +20,15 @@ Fractal::Fractal()
 	mandelbrot_x_max = 1.0;
 	mandelbrot_y_min = -1.0;
 	mandelbrot_y_max = 1.0;
-	mandelbrot_max_iter = 100;
 	mandelbrot_radius = 4.0;
+	mandelbrot_zoom = 1.0;
+	mandelbrot_zoom_increment = 0.95;
+	mandelbrot_pan_increment = 0.05;
+	mandelbrot_max_iter = 200;
+	
 
 	julia_n = 2;
-	julia_max_iter = 1000;
+	julia_max_iter = 200;
 	julia_escape_radius = 2;
 	julia_complex_param = std::complex<long double>(1.0 - ((1.0 + std::sqrt(5)) / 2.0), 0.0);
 
@@ -31,42 +37,81 @@ Fractal::Fractal()
 
 void Fractal::zoom(double zoom_amount)
 {
-	zoom_degree -= 0.05 * zoom_amount;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		mandelbrot_zoom *= mandelbrot_zoom_increment;
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		zoom_degree *= 0.95;
+	}
 }
 
 void Fractal::panUp()
 {
-	y_offset += 0.01;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		mandelbrot_y_min += mandelbrot_pan_increment;
+		mandelbrot_y_max += mandelbrot_pan_increment;
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		y_offset += 0.01;
+	}
 }
 void Fractal::panDown()
 {
-	y_offset -= 0.01;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		mandelbrot_y_min -= mandelbrot_pan_increment;
+		mandelbrot_y_max -= mandelbrot_pan_increment;
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		y_offset -= 0.01;
+	}
 }
 void Fractal::panLeft()
 {
-	x_offset -= 0.01;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		mandelbrot_x_min -= mandelbrot_pan_increment;
+		mandelbrot_x_max -= mandelbrot_pan_increment;
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		x_offset -= 0.01;
+	}
 }
 void Fractal::panRight()
 {
-	x_offset += 0.01;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		mandelbrot_x_min += mandelbrot_pan_increment;
+		mandelbrot_x_max += mandelbrot_pan_increment;
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		x_offset += 0.01;
+	}
 }
 
 
 // Mandlebrot set
-void Fractal::coloredMandelbrotMatrix(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg)
+void Fractal::mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height)
 {
 	for (int index = 0; index < t_pool->size; ++index)
 	{
-		t_pool->addJob([=, &cg]() {coloredMandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size, cg); });
+		t_pool->addJob([=]() {mandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
 	}
 	t_pool->synchronize();
 }
 
-void Fractal::coloredMandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride, ColorGenerator& cg)
+void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
 {
 	for (int i = index; i < (matrix_width * matrix_height); i += stride)
 	{
-		matrix[i] = cg.colorClamp(mandelbrotSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height), mandelbrot_max_iter);
+		matrix[i] = mandelbrotSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height);
 	}
 }
 
@@ -74,6 +119,9 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 {
 	long double x_0 = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * long double(x) / max_x);
 	long double y_0 = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * long double(y) / max_y);
+	x_0 *= mandelbrot_zoom;
+	y_0 *= mandelbrot_zoom;
+
 	long double x_1 = 0;
 	long double y_1 = 0;
 	long double x_2 = 0;
@@ -88,24 +136,26 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 		y_2 = y_1 * y_1;
 		iter += 1;
 	}
+	if (iter == mandelbrot_max_iter)
+		return 0;
 	return iter;
 }
 
 // Julia set
-void Fractal::coloredJuliaMatrix(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg)
+void Fractal::juliaMatrix(int* matrix, int matrix_width, int matrix_height)
 {
 	for (int index = 0; index < t_pool->size; ++index)
 	{
-		t_pool->addJob([=, &cg]() {coloredJuliaThread(index, matrix, matrix_width, matrix_height, t_pool->size, cg); });
+		t_pool->addJob([=]() {juliaThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
 	}
 	t_pool->synchronize();
 }
 
-void Fractal::coloredJuliaThread(int index, int* matrix, int matrix_width, int matrix_height, int stride, ColorGenerator& cg)
+void Fractal::juliaThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
 {
 	for (int i = index; i < (matrix_width * matrix_height); i += stride)
 	{
-		matrix[i] = cg.colorClamp(juliaSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height), julia_max_iter);
+		matrix[i] = juliaSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height);
 	}
 }
 
@@ -129,7 +179,23 @@ int Fractal::juliaSetAtPoint(int x, int y, int max_x, int max_y)
 	}
 	
 	if (iter == julia_max_iter)
-		return -1;
+		return 0;
 	else
 		return iter;
+}
+
+void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg)
+{
+	int n = 0;
+	if (mode == FractalSets::MANDELBROT)
+	{
+		n = mandelbrot_max_iter;
+		mandelbrotMatrix(matrix, matrix_width, matrix_height);
+	}
+	else if (mode == FractalSets::JULIA)
+	{
+		n = julia_max_iter;
+		juliaMatrix(matrix, matrix_width, matrix_height);
+	}
+	cg.generate(matrix, matrix_width, matrix_height, n);
 }
