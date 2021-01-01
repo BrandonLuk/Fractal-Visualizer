@@ -10,6 +10,8 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include <immintrin.h>
+
 #include "color.h"
 #include "fractal.h"
 
@@ -48,6 +50,14 @@ ColorGenerator cg;
 bool update_fractal = false; // Keeps track of when the fractal has changed, so that we dont render the same fractal multiple times
 
 ////////////////////////////////////////////////////////////
+/// Timing resources
+////////////////////////////////////////////////////////////
+
+std::chrono::high_resolution_clock::time_point last;
+std::chrono::high_resolution_clock::time_point now;
+std::chrono::duration<long double> time_delta;
+
+////////////////////////////////////////////////////////////
 /// Key press flags
 ////////////////////////////////////////////////////////////
 
@@ -64,10 +74,14 @@ bool d_key_pressed = false;
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     update_fractal = true;
+
+    double cursor_x_pos_from_top_left, cursor_y_pos_from_top_left;
+    glfwGetCursorPos(window, &cursor_x_pos_from_top_left, &cursor_y_pos_from_top_left);
+
     if (yoffset > 0)
-        fractal.zoom(yoffset);
+        fractal.followingZoom(yoffset, cursor_x_pos_from_top_left, cursor_y_pos_from_top_left, WINDOW_WIDTH, WINDOW_HEIGHT);
     else
-        fractal.zoom(yoffset);
+        fractal.followingZoom(yoffset, cursor_x_pos_from_top_left, cursor_y_pos_from_top_left, WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -92,6 +106,24 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
         d_key_pressed = true;
     else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
         d_key_pressed = false;
+
+    else if (key == GLFW_KEY_E && action == GLFW_PRESS)
+        fractal.stationaryZoom(1);
+
+    else if (key == GLFW_KEY_Q && action == GLFW_PRESS)
+        fractal.stationaryZoom(-1);
+
+    else if (key == GLFW_KEY_R && action == GLFW_PRESS)
+        fractal.reset();
+
+    else if (key == GLFW_KEY_C && action == GLFW_PRESS)
+        cg.switchMode();
+
+    else if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
+        fractal.increaseIterations();
+
+    else if (key == GLFW_KEY_MINUS && action == GLFW_PRESS)
+        fractal.decreaseIterations();
 }
 
 
@@ -121,16 +153,16 @@ void initGL()
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
-void panWindowFrame()
+void panWindowFrame(long double delta)
 {
     if (w_key_pressed)
-        fractal.panUp();
+        fractal.panUp(delta);
     if (a_key_pressed)
-        fractal.panLeft();
+        fractal.panLeft(delta);
     if (s_key_pressed)
-        fractal.panDown();
+        fractal.panDown(delta);
     if (d_key_pressed)
-        fractal.panRight();
+        fractal.panRight(delta);
 }
 
 void render()
@@ -142,7 +174,9 @@ void render()
     GLubyte* ptr = (GLubyte*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 
     int* ptr_i = (int*)ptr;
+    //START_TIMER
     fractal.generate(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg);
+    //END_TIMER
     
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 
@@ -192,6 +226,8 @@ int main(void)
 
     update_fractal = true;
 
+    last = std::chrono::high_resolution_clock::now();
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
@@ -204,8 +240,12 @@ int main(void)
         }
 
         /* Poll for and process events */
+        now = std::chrono::high_resolution_clock::now();
+        time_delta = now - last;
+        last = now;
+
         glfwPollEvents();
-        panWindowFrame();
+        panWindowFrame(time_delta.count());
     }
 
     glDeleteBuffers(1, &gl_pbo);
