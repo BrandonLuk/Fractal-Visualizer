@@ -34,7 +34,7 @@ ColorGenerator::ColorGenerator()
 
 void ColorGenerator::switchMode()
 {
-	mode = static_cast<Generators>((mode + 1) % (Generators::LAST));
+	mode = (Generators)((static_cast<int>(mode) + 1) % static_cast<int>(Generators::LAST));
 }
 
 // To pack chars into a 32-bit int we use bit shifting.
@@ -67,16 +67,30 @@ ColorGenerator::Color ColorGenerator::Color::operator*(double multiplier)
 					unsigned char(b * multiplier) };
 }
 
+////////////////////////////////////////////////////////////
+/// Simple color generator
+////////////////////////////////////////////////////////////
+/*
+* To produce some nice, simple colors, simply plug the number of iterations into the sine function. Arbitrary modifiers can be applied
+* to change the color palette.
+*/
+
 void ColorGenerator::simpleThread(int index, int stride, int* matrix, int matrix_width, int matrix_height)
 {
 	double a;
 	unsigned char r, g, b;
 	for (int i = index; i < (matrix_width * matrix_height); i += stride)
 	{
-		a = (double)matrix[i];
-		r = 255 * (0.5f * std::sin(a * 0.1f + 1.246f) + 0.5f);
-		g = 255 * (0.5f * std::sin(a * 0.1f + 0.396f) + 0.5f);
-		b = 255 * (0.5f * std::sin(a * 0.1f + 3.188f) + 0.5f);
+		a = static_cast<double>(matrix[i]);
+		// 255 -> max value of an unsigned char
+		// The sine function can return negative values, so clamp its result to [0.0, 1.0] by
+		// multiplying by 0.5 then adding 0.5.
+		// The float literals inside the sine function are arbitrary and can be changed to alter the color palette.
+		r = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 1.246f) + 0.5f));
+		g = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 0.396f) + 0.5f));
+		b = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 3.188f) + 0.5f));
+
+		// Pack the unsigned chars into an int for OpenGL
 		matrix[i] = int(b << 16 | g << 8 | r);
 	}
 }
@@ -90,6 +104,12 @@ void ColorGenerator::simple(int* matrix, int matrix_width, int matrix_height)
 	t_pool->synchronize();
 }
 
+////////////////////////////////////////////////////////////
+/// Histogram color generator
+////////////////////////////////////////////////////////////
+/*
+* Produces a more regular color pattern, but is slower.
+*/
 void histogramCountThread(int index, int stride, std::vector<std::unique_ptr<std::atomic<int>>>& num_iters_per_pixel, int* matrix, int matrix_width, int matrix_height)
 {
 	for (int i = index; i < matrix_width * matrix_height; i += stride)

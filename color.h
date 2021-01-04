@@ -26,7 +26,7 @@ class ColorGenerator
 		Color operator*(double multiplier);
 	};
 
-	enum Generators { SIMPLE = 0, HISTOGRAM, LAST} mode;
+	enum class Generators { SIMPLE = 0, HISTOGRAM, LAST} mode;
 
 	ThreadPool* t_pool;
 

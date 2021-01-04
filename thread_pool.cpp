@@ -9,9 +9,9 @@
 ThreadPool::ThreadPool()
 {
 	terminate = false;
-	for (int i = 0; i < std::thread::hardware_concurrency() - 1; ++i)
+	for (unsigned int i = 0; i < std::thread::hardware_concurrency() - 1; ++i)
 		pool.push_back(std::thread(&ThreadPool::threadWork, this));
-	size = pool.size();
+	size = static_cast<int>(pool.size());
 }
 
 ThreadPool::~ThreadPool()

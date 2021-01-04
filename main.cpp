@@ -3,14 +3,32 @@
 * 
 * Uses GLFW and OpenGL.
 * 
+* Requires AVX2 capable CPU.
 * 
-* Brandon Luk
+* Brandon Luk 2020
+* 
+* Fractals:
+*   Mandelbrot w/wo AVX
+*   Julia
+* 
+* Color schemes:
+*   Simple(fast, but noisy with more detail)
+*   Histogram(slow, scales with detail better)
+* 
+* CONTROLS:
+*   W, A, S, D - Pan up, left, down, and right
+*   Q, E - Zoom out and in, respectively
+*   R - Reset fractal parameters(zoom, pan) to default 
+*   F - Switch between fractal sets
+*   I - Switch between standard and AVX instruction sets on applicable fractals
+*   C - Switch between color sets
+*   -, = - Decrease and increase fractal iteration limits, respectively
 */
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
-#include <immintrin.h>
+#include <immintrin.h> // AVX instruction set
 
 #include "color.h"
 #include "fractal.h"
@@ -18,16 +36,6 @@
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
-#include <chrono>
-
-#include <fstream>
-
-#include <iomanip>
-
-// For timing
-#define START_TIMER auto start = std::chrono::steady_clock::now();
-#define END_TIMER   auto dur = std::chrono::steady_clock::now() - start; \
-                    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(dur).count() << std::endl;
 
 unsigned int WINDOW_WIDTH = 1280;
 unsigned int WINDOW_HEIGHT = 720;
@@ -71,6 +79,9 @@ bool d_key_pressed = false;
 /// GLFW callbacks
 ////////////////////////////////////////////////////////////
 
+/*
+* Mouse scrollwheel forward -> zoom in, backward -> zoom out.
+*/
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
     update_fractal = true;
@@ -78,15 +89,12 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     double cursor_x_pos_from_top_left, cursor_y_pos_from_top_left;
     glfwGetCursorPos(window, &cursor_x_pos_from_top_left, &cursor_y_pos_from_top_left);
 
-    if (yoffset > 0)
-        fractal.followingZoom(yoffset, cursor_x_pos_from_top_left, cursor_y_pos_from_top_left, WINDOW_WIDTH, WINDOW_HEIGHT);
-    else
-        fractal.followingZoom(yoffset, cursor_x_pos_from_top_left, cursor_y_pos_from_top_left, WINDOW_WIDTH, WINDOW_HEIGHT);
+    fractal.followingZoom(yoffset, cursor_x_pos_from_top_left, cursor_y_pos_from_top_left, WINDOW_WIDTH, WINDOW_HEIGHT);
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    update_fractal = true;
+    // Panning
     if (key == GLFW_KEY_W && action == GLFW_PRESS)
         w_key_pressed = true;
     else if (key == GLFW_KEY_W && action == GLFW_RELEASE)
@@ -107,27 +115,46 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
     else if (key == GLFW_KEY_D && action == GLFW_RELEASE)
         d_key_pressed = false;
 
+    // Zooming
     else if (key == GLFW_KEY_E && action == GLFW_PRESS)
-        fractal.stationaryZoom(1);
+        fractal.stationaryZoom(1, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     else if (key == GLFW_KEY_Q && action == GLFW_PRESS)
-        fractal.stationaryZoom(-1);
+        fractal.stationaryZoom(-1, WINDOW_WIDTH, WINDOW_HEIGHT);
 
+    // Reset
     else if (key == GLFW_KEY_R && action == GLFW_PRESS)
         fractal.reset();
 
+    // Switch between fractal sets
+    else if (key == GLFW_KEY_F && action == GLFW_PRESS)
+        fractal.switchFractal();
+
+    // Switch from standard instructions to AVX2
+    else if (key == GLFW_KEY_I && action == GLFW_PRESS)
+        fractal.switchInstruction();
+
+    // Change color generation mode
     else if (key == GLFW_KEY_C && action == GLFW_PRESS)
         cg.switchMode();
 
+    // Iteration control
     else if (key == GLFW_KEY_EQUAL && action == GLFW_PRESS)
         fractal.increaseIterations();
 
     else if (key == GLFW_KEY_MINUS && action == GLFW_PRESS)
         fractal.decreaseIterations();
+
+    // The callback will be called even if a key we dont care about was pressed. In that case just return without changing the update flag.
+    else
+        return;
+    update_fractal = true;
 }
 
 
-
+/*
+* Generate our OpenGL texture and PBO.
+*/
 void initGL()
 {
     glShadeModel(GL_FLAT);
@@ -153,6 +180,9 @@ void initGL()
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 }
 
+/*
+* Pan the window frame depending on which keys are pressed. Use the time passed(delta) as a dampener to smooth out the panning.
+*/
 void panWindowFrame(long double delta)
 {
     if (w_key_pressed)
@@ -165,6 +195,9 @@ void panWindowFrame(long double delta)
         fractal.panRight(delta);
 }
 
+/*
+* Generate the colored fractal and pass it to OpenGL which will draw it on a textured quad.
+*/
 void render()
 {
     update_fractal = false;
