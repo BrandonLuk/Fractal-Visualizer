@@ -23,6 +23,8 @@
 *   I - Switch between standard and AVX instruction sets on applicable fractals
 *   C - Switch between color sets
 *   -, = - Decrease and increase fractal iteration limits, respectively
+* 
+*   Mouse scrollwheen can be used to zoom in/out while following the mouse cursor
 */
 
 #include <GL/glew.h>
@@ -63,7 +65,7 @@ bool update_fractal = false; // Keeps track of when the fractal has changed, so 
 
 std::chrono::high_resolution_clock::time_point last;
 std::chrono::high_resolution_clock::time_point now;
-std::chrono::duration<long double> time_delta;
+std::chrono::duration<double> time_delta;
 
 ////////////////////////////////////////////////////////////
 /// Key press flags
@@ -183,7 +185,7 @@ void initGL()
 /*
 * Pan the window frame depending on which keys are pressed. Use the time passed(delta) as a dampener to smooth out the panning.
 */
-void panWindowFrame(long double delta)
+void panWindowFrame(double delta)
 {
     if (w_key_pressed)
         fractal.panUp(delta);
