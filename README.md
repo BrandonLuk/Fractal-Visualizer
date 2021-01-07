@@ -7,6 +7,8 @@ This program visualizes various fractal sets in a colored plot.
 GLFW for windowing  
 An AVX2 capable CPU
 
+Tested with a Ryzen 7 3700x, on Windows 10, compiled with MSVC
+
 # Current features
 Fractals:  
   Mandelbrot (w/wo AVX2)
