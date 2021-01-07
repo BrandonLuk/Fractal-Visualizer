@@ -209,9 +209,7 @@ void render()
     GLubyte* ptr = (GLubyte*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 
     int* ptr_i = (int*)ptr;
-    //START_TIMER
     fractal.generate(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg);
-    //END_TIMER
     
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 

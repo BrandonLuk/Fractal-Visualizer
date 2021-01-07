@@ -71,9 +71,9 @@ void Fractal::stationaryZoom(int direction, int max_x, int max_y)
 		*/
 
 		// 0.5 since we are interested in the center pixel value.
-		double common_x = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * 0.5) + mandelbrot_x_offset;
-		double common_y = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * 0.5) + mandelbrot_y_offset;
-		double old_zoom = mandelbrot_zoom;
+		long double common_x = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * 0.5) + mandelbrot_x_offset;
+		long double common_y = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * 0.5) + mandelbrot_y_offset;
+		long double old_zoom = mandelbrot_zoom;
 
 		if (direction > 0)
 		{
@@ -89,9 +89,9 @@ void Fractal::stationaryZoom(int direction, int max_x, int max_y)
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		double common_x = -julia_escape_radius + (2.0 * julia_escape_radius * 0.5) + julia_x_offset;
-		double common_y = -julia_escape_radius + (2.0 * julia_escape_radius * 0.5) + julia_y_offset;
-		double old_zoom = julia_zoom;
+		long double common_x = -julia_escape_radius + (2.0 * julia_escape_radius * 0.5) + julia_x_offset;
+		long double common_y = -julia_escape_radius + (2.0 * julia_escape_radius * 0.5) + julia_y_offset;
+		long double old_zoom = julia_zoom;
 
 		if (direction > 0)
 		{
@@ -114,14 +114,14 @@ void Fractal::followingZoom(int direction, int x_pos, int y_pos, int max_x, int 
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
-		double prezoom_cursor_x;
-		double prezoom_cursor_y;
+		long double prezoom_cursor_x;
+		long double prezoom_cursor_y;
 		mandelbrotScale(prezoom_cursor_x, prezoom_cursor_y, x_pos, y_pos, max_x, max_y);
 
 		stationaryZoom(direction, max_x, max_y);
 
-		double postzoom_cursor_x;
-		double postzoom_cursor_y;
+		long double postzoom_cursor_x;
+		long double postzoom_cursor_y;
 		mandelbrotScale(postzoom_cursor_x, postzoom_cursor_y, x_pos, y_pos, max_x, max_y);
 
 		mandelbrot_x_offset += (prezoom_cursor_x - postzoom_cursor_x) * mandelbrot_zoom;
@@ -129,14 +129,14 @@ void Fractal::followingZoom(int direction, int x_pos, int y_pos, int max_x, int 
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		double prezoom_cursor_x;
-		double prezoom_cursor_y;
+		long double prezoom_cursor_x;
+		long double prezoom_cursor_y;
 		juliaScale(prezoom_cursor_x, prezoom_cursor_y, x_pos, y_pos, max_x, max_y);
 
 		stationaryZoom(direction, max_x, max_y);
 
-		double postzoom_cursor_x;
-		double postzoom_cursor_y;
+		long double postzoom_cursor_x;
+		long double postzoom_cursor_y;
 		juliaScale(postzoom_cursor_x, postzoom_cursor_y, x_pos, y_pos, max_x, max_y);
 
 		julia_x_offset += (prezoom_cursor_x - postzoom_cursor_x) * julia_zoom;
@@ -144,7 +144,7 @@ void Fractal::followingZoom(int direction, int x_pos, int y_pos, int max_x, int 
 	}
 }
 
-void Fractal::panUp(double delta)
+void Fractal::panUp(long double delta)
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
@@ -155,7 +155,7 @@ void Fractal::panUp(double delta)
 		julia_y_offset += julia_pan_increment * delta;
 	}
 }
-void Fractal::panDown(double delta)
+void Fractal::panDown(long double delta)
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
@@ -166,7 +166,7 @@ void Fractal::panDown(double delta)
 		julia_y_offset -= julia_pan_increment * delta;
 	}
 }
-void Fractal::panLeft(double delta)
+void Fractal::panLeft(long double delta)
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
@@ -177,7 +177,7 @@ void Fractal::panLeft(double delta)
 		julia_x_offset -= julia_pan_increment * delta;
 	}
 }
-void Fractal::panRight(double delta)
+void Fractal::panRight(long double delta)
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
@@ -248,10 +248,10 @@ void Fractal::reset()
 }
 
 // Mandlebrot set
-void Fractal::mandelbrotScale(double& scaled_x, double& scaled_y, int x, int y, int max_x, int max_y)
+void Fractal::mandelbrotScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y)
 {
-	scaled_x = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * (static_cast<double>(x) / max_x));
-	scaled_y = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * (static_cast<double>(y) / max_y));
+	scaled_x = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * (static_cast<long double>(x) / max_x));
+	scaled_y = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * (static_cast<long double>(y) / max_y));
 	scaled_x = (scaled_x + mandelbrot_x_offset) / mandelbrot_zoom;
 	scaled_y = (scaled_y + mandelbrot_y_offset) / mandelbrot_zoom;
 }
@@ -276,44 +276,44 @@ void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int mat
 	}
 }
 
-bool Fractal::mandelbrot_bulb_check(double x_0, double y_0)
+bool Fractal::mandelbrotBulbCheck(long double x_0, long double y_0)
 {
 	// Period-2 bulb check
-	double period_2 = ((x_0 + 1) * (x_0 + 1)) + (y_0 * y_0);
+	long double period_2 = ((x_0 + 1.0L) * (x_0 + 1.0L)) + (y_0 * y_0);
 	bool within_period_2 = period_2 <= 1.0L / 16.0L;
 
 	return within_period_2;
 }
 
-bool Fractal::mandelbrot_cardioid_check(double x_0, double y_0)
+bool Fractal::mandelbrotCardioidCheck(long double x_0, long double y_0)
 {
 	// Cardioid check
-	double q = ((x_0 - 0.25L) * (x_0 - 0.25L)) + (y_0 * y_0);
+	long double q = ((x_0 - 0.25L) * (x_0 - 0.25L)) + (y_0 * y_0);
 	bool within_cardioid = q * (q + (x_0 - 0.25L)) <= 0.25L * (y_0 * y_0);
 
 	return within_cardioid;
 }
 
-bool Fractal::mandelbrot_prune(double x_0, double y_0)
+bool Fractal::mandelbrotPrune(long double x_0, long double y_0)
 {
-	return	mandelbrot_cardioid_check(x_0, y_0) ||
-			mandelbrot_bulb_check(x_0, y_0);
+	return	mandelbrotCardioidCheck(x_0, y_0) ||
+			mandelbrotBulbCheck(x_0, y_0);
 }
 
 int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 {
-	double x_0;
-	double y_0;
+	long double x_0;
+	long double y_0;
 	mandelbrotScale(x_0, y_0, x, y, max_x, max_y);
 
 
-	if (mandelbrot_prune(x_0, y_0))
+	if (mandelbrotPrune(x_0, y_0))
 		return 0;
 
-	double x_1 = 0;
-	double y_1 = 0;
-	double x_2 = 0;
-	double y_2 = 0;
+	long double x_1 = 0;
+	long double y_1 = 0;
+	long double x_2 = 0;
+	long double y_2 = 0;
 
 	int iter = 0;
 	while (x_2 + y_2 <= mandelbrot_radius && iter < mandelbrot_max_iter)
@@ -340,8 +340,8 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 
 
 	_radius = _mm256_set1_pd(mandelbrot_radius);
-	_max_x = _mm256_set1_pd(static_cast<double>(matrix_width));
-	_max_y = _mm256_set1_pd(static_cast<double>(matrix_height));
+	_max_x = _mm256_set1_pd(static_cast<long double>(matrix_width));
+	_max_y = _mm256_set1_pd(static_cast<long double>(matrix_height));
 	_m_x_min = _mm256_set1_pd(mandelbrot_x_min);
 	_m_y_min = _mm256_set1_pd(mandelbrot_y_min);
 	_m_x_subbed = _mm256_set1_pd(mandelbrot_x_max - mandelbrot_x_min);
@@ -356,7 +356,7 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 
 	for (int i = index; i < (matrix_width * matrix_height); i += (stride * 4))
 	{
-		_index = _mm256_set1_pd(static_cast<double>(i));
+		_index = _mm256_set1_pd(static_cast<long double>(i));
 		_index = _mm256_add_pd(_index, _index_add_mask);
 
 		// Convert from flat index to 2-D x and y
@@ -369,11 +369,11 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 		_y_0 = _mm256_floor_pd(_y_0);
 
 		// Scaling from window pixels to Cartesian X and Y
-		// x_0 = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * double(x) / max_x);
+		// x_0 = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * long double(x) / max_x);
 		_x_0 = _mm256_div_pd(_x_0, _max_x);
 		_x_0 = _mm256_mul_pd(_x_0, _m_x_subbed);
 		_x_0 = _mm256_add_pd(_x_0, _m_x_min);
-		// y_0 = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * double(y) / max_y);
+		// y_0 = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * long double(y) / max_y);
 		_y_0 = _mm256_div_pd(_y_0, _max_y);
 		_y_0 = _mm256_mul_pd(_y_0, _m_y_subbed);
 		_y_0 = _mm256_add_pd(_y_0, _m_y_min);
@@ -421,12 +421,12 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 }
 
 // Julia set
-void Fractal::juliaScale(double& scaled_x, double& scaled_y, int x, int y, int max_x, int max_y)
+void Fractal::juliaScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y)
 {
-	scaled_x = -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<double>(x) / max_x));
-	scaled_y = -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<double>(y) / max_y));
+	scaled_x = -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<long double>(x) / max_x));
+	scaled_y = -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<long double>(y) / max_y));
 	scaled_x = (scaled_x + julia_x_offset) / julia_zoom;
-	scaled_y = (scaled_y + julia_y_offset) / julia_zoom / (static_cast<double>(max_x) / max_y); // We want to stretch out the y-axis since the window frame most likely has a larger width (e.g. 1280x720)
+	scaled_y = (scaled_y + julia_y_offset) / julia_zoom / (static_cast<long double>(max_x) / max_y); // We want to stretch out the y-axis since the window frame most likely has a larger width (e.g. 1280x720)
 }
 
 void Fractal::juliaMatrix(int* matrix, int matrix_width, int matrix_height)
@@ -448,13 +448,13 @@ void Fractal::juliaThread(int index, int* matrix, int matrix_width, int matrix_h
 
 int Fractal::juliaSetAtPoint(int x, int y, int max_x, int max_y)
 {
-	double zx;
-	double zy;
+	long double zx;
+	long double zy;
 	juliaScale(zx, zy, x, y, max_x, max_y);
 
 	int iter = 0;
 
-	double temp;
+	long double temp;
 	while (zx * zx + zy * zy < (julia_escape_radius * julia_escape_radius) && iter < julia_max_iter)
 	{
 		temp = zx * zx - zy * zy;
