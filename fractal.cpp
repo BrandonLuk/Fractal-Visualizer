@@ -8,7 +8,7 @@
 #include <thread>
 #include <vector>
 
-#include <immintrin.h>
+#include <immintrin.h> // AVX intrinsics
 
 #include <iostream>
 
@@ -247,33 +247,34 @@ void Fractal::reset()
 	}
 }
 
-// Mandlebrot set
+////////////////////////////////////////////////////////////
+/// Mandelbrot Set Functions
+////////////////////////////////////////////////////////////
+
+/*
+*	Adds jobs to the ThreadPool job queue that will fill the supplied matrix with Mandelbrot set iteration values.
+*/
+void Fractal::mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height)
+{
+	for (int index = 0; index < t_pool->size; ++index)
+	{
+		if (instruction_mode == InstructionModes::STANDARD)
+			t_pool->addJob([=]() {mandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
+		else
+			t_pool->addJob([=]() {mandelbrotAVXThread(index * 4, matrix, matrix_width, matrix_height, t_pool->size); });
+	}
+	t_pool->synchronize();
+}
+
+
+//Mandelbrot set functions for standard instruction set
+
 void Fractal::mandelbrotScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y)
 {
 	scaled_x = mandelbrot_x_min + ((mandelbrot_x_max - mandelbrot_x_min) * (static_cast<long double>(x) / max_x));
 	scaled_y = mandelbrot_y_min + ((mandelbrot_y_max - mandelbrot_y_min) * (static_cast<long double>(y) / max_y));
 	scaled_x = (scaled_x + mandelbrot_x_offset) / mandelbrot_zoom;
 	scaled_y = (scaled_y + mandelbrot_y_offset) / mandelbrot_zoom;
-}
-
-void Fractal::mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height)
-{
-	for (int index = 0; index < t_pool->size; ++index)
-	{
-		if(instruction_mode == InstructionModes::STANDARD)
-			t_pool->addJob([=]() {mandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
-		else
-			t_pool->addJob([=]() {mandelbrotAVXThread(index*4, matrix, matrix_width, matrix_height, t_pool->size); });
-	}
-	t_pool->synchronize();
-}
-
-void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
-{
-	for (int i = index; i < (matrix_width * matrix_height); i += stride)
-	{
-		matrix[i] = mandelbrotSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height);
-	}
 }
 
 bool Fractal::mandelbrotBulbCheck(long double x_0, long double y_0)
@@ -329,6 +330,71 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 	return iter;
 }
 
+void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
+{
+	for (int i = index; i < (matrix_width * matrix_height); i += stride)
+	{
+		matrix[i] = mandelbrotSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height);
+	}
+}
+
+
+//	Mandelbrot set functions for AVX instruction set
+
+__m256d Fractal::mandelbrotBulbCheckAVX(const __m256d& _x, const __m256d& _y)
+{
+	__m256d _period_2, _one, _sixteen;
+
+	_one = _mm256_set1_pd(1.0);
+	_sixteen = _mm256_set1_pd(16.0);
+
+	_period_2 = _mm256_add_pd(_x, _one);
+	_period_2 = _mm256_mul_pd(_period_2, _period_2);
+	_period_2 = _mm256_fmadd_pd(_y, _y, _period_2);
+
+	return _mm256_cmp_pd(_period_2, _mm256_div_pd(_one, _sixteen), _CMP_LE_OQ);
+}
+__m256d Fractal::mandelbrotCardioidCheckAVX(const __m256d& _x, const __m256d& _y)
+{
+	__m256d _q, _l, _r, _x_sub_quarter, _quarter;
+
+	_quarter = _mm256_set1_pd(0.25);
+	_x_sub_quarter = _mm256_sub_pd(_x, _quarter); // (x_0 - 0.25) is used several times here, so we will do the computation once and store it
+
+	_q = _mm256_mul_pd(_x_sub_quarter, _x_sub_quarter);
+	_q = _mm256_fmadd_pd(_y, _y, _q);
+
+	// Left side of the inequality
+	_l = _mm256_add_pd(_q, _x_sub_quarter);
+	_l = _mm256_mul_pd(_q, _l);
+
+	// Right side of the inequality
+	_r = _mm256_mul_pd(_y, _y);
+	_r = _mm256_mul_pd(_r, _quarter);
+
+	return _mm256_cmp_pd(_l, _r, _CMP_LE_OQ);
+}
+
+bool Fractal::mandelbrotPruneAVX(const __m256d& _x, const __m256d& _y)
+{
+	__m256d _mask1, _mask2;
+
+	_mask1 = mandelbrotBulbCheckAVX(_x, _y);
+	_mask2 = mandelbrotCardioidCheckAVX(_x, _y);
+
+	_mask1 = _mm256_or_pd(_mask1, _mask2);
+
+	/* "_mm256_movemask_pd" will return an int whose individiual bits are set to 1 in correlation to the 1's in the given mask.
+	*  Therefore, if every value in the mask is true, movemask will return 1111 which is 0xF.
+	*  We only want to return true if each of the 4 points can be pruned. Even if there is only one point that cannot be pruned, we still will return false
+	*  so that that one point can be iterated over.
+	*/
+	if (_mm256_movemask_pd(_mask1) == 0xF)
+		return true;
+
+	return false;
+}
+
 /*
 * Calculate mandelbrot iterations using AVX2 instructions. AVX2 uses 256-bit registers and we do calculations with 64-bit floating point numbers, so we are able
 * to calculate 4 points per pass.
@@ -339,16 +405,17 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 	__m256i _iter, _max_iter, _increment, _one, _mask2;
 
 
-	_radius = _mm256_set1_pd(mandelbrot_radius);
-	_max_x = _mm256_set1_pd(static_cast<long double>(matrix_width));
-	_max_y = _mm256_set1_pd(static_cast<long double>(matrix_height));
-	_m_x_min = _mm256_set1_pd(mandelbrot_x_min);
-	_m_y_min = _mm256_set1_pd(mandelbrot_y_min);
+	_radius		= _mm256_set1_pd(mandelbrot_radius);
+	_max_x		= _mm256_set1_pd(static_cast<long double>(matrix_width));
+	_max_y		= _mm256_set1_pd(static_cast<long double>(matrix_height));
+	_m_x_min	= _mm256_set1_pd(mandelbrot_x_min);
+	_m_y_min	= _mm256_set1_pd(mandelbrot_y_min);
 	_m_x_subbed = _mm256_set1_pd(mandelbrot_x_max - mandelbrot_x_min);
 	_m_y_subbed = _mm256_set1_pd(mandelbrot_y_max - mandelbrot_y_min);
 	_m_x_offset = _mm256_set1_pd(mandelbrot_x_offset);
 	_m_y_offset = _mm256_set1_pd(mandelbrot_y_offset);
-	_m_zoom = _mm256_set1_pd(mandelbrot_zoom);
+	_m_zoom		= _mm256_set1_pd(mandelbrot_zoom);
+
 	_index_add_mask = _mm256_set_pd(0.0, 1.0, 2.0, 3.0);
 
 	_one = _mm256_set1_epi64x(1);
@@ -385,6 +452,12 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 		_y_0 = _mm256_add_pd(_y_0, _m_y_offset);
 		_y_0 = _mm256_div_pd(_y_0, _m_zoom);
 
+		if (mandelbrotPruneAVX(_x_0, _y_0))
+		{
+			_iter = _mm256_set1_epi64x(0);
+			goto assign;
+		}
+
 
 		_x_1 = _mm256_set1_pd(0.0);
 		_y_1 = _mm256_set1_pd(0.0);
@@ -411,8 +484,10 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 		_mask2 = _mm256_cmpeq_epi64(_iter, _max_iter);
 		_iter = _mm256_andnot_si256(_mask2, _iter);
 
+	assign:
+
 		// Extract vector values
-		// These iter values should always be positive and should never get too high, so casting from 64-bit int to 32-bit int should not be a problem
+		// These iter values should never get too high, so casting from 64-bit int to 32-bit int should not be a problem
 		matrix[i]	  = static_cast<int>(_iter.m256i_i64[3]);
 		matrix[i + 1] = static_cast<int>(_iter.m256i_i64[2]);
 		matrix[i + 2] = static_cast<int>(_iter.m256i_i64[1]);
@@ -420,7 +495,9 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 	}
 }
 
-// Julia set
+////////////////////////////////////////////////////////////
+/// Julia Set Functions
+////////////////////////////////////////////////////////////
 void Fractal::juliaScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y)
 {
 	scaled_x = -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<long double>(x) / max_x));
@@ -469,6 +546,11 @@ int Fractal::juliaSetAtPoint(int x, int y, int max_x, int max_y)
 	else
 		return iter;
 }
+
+
+////////////////////////////////////////////////////////////
+/// Fractal Parameter Adjustment Functions
+////////////////////////////////////////////////////////////
 
 void Fractal::switchFractal()
 {

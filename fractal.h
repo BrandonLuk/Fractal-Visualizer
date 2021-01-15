@@ -14,6 +14,8 @@
 #include <thread>
 #include <vector>
 
+#include <immintrin.h> // AVX intrinsics
+
 // Golden ratio
 #define PHI (1.0 + std::sqrt(5.0) / 2.0)
 
@@ -66,12 +68,16 @@ class Fractal
 	ThreadPool* t_pool;
 
 	void mandelbrotScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y);
-	void mandelbrotAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
-	void mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
 	bool mandelbrotBulbCheck(long double x_0, long double y_0);
 	bool mandelbrotCardioidCheck(long double x_0, long double y_0);
 	bool mandelbrotPrune(long double x_0, long double y_0);
 	int mandelbrotSetAtPoint(int x, int y, int max_x, int max_y);
+	void mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
+
+	__m256d mandelbrotBulbCheckAVX(const __m256d& _x, const __m256d& _y);
+	__m256d mandelbrotCardioidCheckAVX(const __m256d& _x, const __m256d& _y);
+	bool mandelbrotPruneAVX(const __m256d& _x, const __m256d& _y);
+	void mandelbrotAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
 
 	void juliaScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y);
 	void juliaThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
