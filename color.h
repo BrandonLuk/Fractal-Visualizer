@@ -35,6 +35,9 @@ class ColorGenerator
 
 	void simpleThread(int index, int stride, int* matrix, int matrix_width, int matrix_height);
 	void simple(int* matrix, int matrix_width, int matrix_height);
+	void simpleAVXThread(int index, int stride, int* matrix, int end_index);
+	void simpleAVX(int* matrix, int end_index);
+
 	void histogramHueThead(int index, int stride, unsigned int total, std::vector<std::unique_ptr<std::atomic<int>>>& num_iters_per_pixel, int* matrix, int matrix_width, int matrix_height);
 	void histogram(int* matrix, int matrix_width, int matrix_height, int n);
 
@@ -42,4 +45,5 @@ public:
 	ColorGenerator();
 	void switchMode();
 	void generate(int* matrix, int matrix_width, int matrix_height, int n);
+	void generateAVX(int* matrix, int matrix_width, int matrix_height, int n);
 };

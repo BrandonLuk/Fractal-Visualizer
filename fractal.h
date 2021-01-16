@@ -86,7 +86,6 @@ class Fractal
 public:
 
 	enum class FractalSets { MANDELBROT = 0, JULIA, LAST} fractal_mode;
-	enum class InstructionModes {STANDARD = 0, AVX, LAST} instruction_mode;
 
 	long double mandelbrot_x_min;
 	long double mandelbrot_x_max;
@@ -125,9 +124,9 @@ public:
 	void reset();
 
 	void mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height);
+	void mandelbrotMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 	void juliaMatrix(int* matrix, int matrix_width, int matrix_height);
 
 	void switchFractal();
-	void switchInstruction();
-	void generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg);
+	void generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX);
 };

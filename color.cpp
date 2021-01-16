@@ -7,6 +7,8 @@
 #include <stdint.h>
 #include <vector>
 
+#include <immintrin.h> // AVX intrinsics
+
 #include <iostream>
 
 uint8_t sat_add_u8b(uint8_t l, uint8_t r)
@@ -104,6 +106,63 @@ void ColorGenerator::simple(int* matrix, int matrix_width, int matrix_height)
 	t_pool->synchronize();
 }
 
+/*
+* Perform simple iteratin value to color conversion using AVX instructions.
+*/
+void ColorGenerator::simpleAVXThread(int index, int stride, int* matrix, int end_index)
+{
+	__m256 _iter, _r, _g, _b, _uchar_max, _half, _tenth, _r_mod, _g_mod, _b_mod;
+	__m256i _res;
+
+	_uchar_max	= _mm256_set1_ps(255.0f);
+	_half		= _mm256_set1_ps(0.5f);
+	_tenth		= _mm256_set1_ps(0.1f);
+	_r_mod		= _mm256_set1_ps(1.246f);
+	_g_mod		= _mm256_set1_ps(0.396f);
+	_b_mod		= _mm256_set1_ps(3.188f);
+
+	for (int i = index; i < end_index; i += stride)
+	{
+		// Load the iteration values, convert them to floats, and store them in _iter
+		_iter = _mm256_cvtepi32_ps(_mm256_load_si256((__m256i*)&matrix[i]));
+
+		// r
+		_r = _mm256_sin_ps(_mm256_fmadd_ps(_iter, _tenth, _r_mod));
+		_r = _mm256_fmadd_ps(_half, _r, _half);
+		_r = _mm256_mul_ps(_uchar_max, _r);
+
+		// g
+		_g = _mm256_sin_ps(_mm256_fmadd_ps(_iter, _tenth, _g_mod));
+		_g = _mm256_fmadd_ps(_half, _g, _half);
+		_g = _mm256_mul_ps(_uchar_max, _g);
+
+		// b
+		_b = _mm256_sin_ps(_mm256_fmadd_ps(_iter, _tenth, _b_mod));
+		_b = _mm256_fmadd_ps(_half, _b, _half);
+		_b = _mm256_mul_ps(_uchar_max, _b);
+
+		/*
+		* We wish to shift and pack the R, G, and B values into an int, as is done in the standard isntruction version of this function:
+		* matrix[i] = int(b << 16 | g << 8 | r);
+		*/
+		_res = _mm256_slli_epi32(_mm256_cvtps_epi32(_b), 16);						// Convert _b from float to 32-bit int and shift left 16
+		_res = _mm256_or_si256(_res, _mm256_slli_epi32(_mm256_cvtps_epi32(_g), 8)); // Convert _g from float to 32-bit int, shift left 8, and or with _res
+		_res = _mm256_or_si256(_res, _mm256_cvtps_epi32(_r));						// Convert _r from float to 32-bit int and or with _res
+
+		// Write _res directly into the matrix, overwriting the iteration values we used
+		_mm256_store_si256((__m256i*) & matrix[i], _res);
+	}
+}
+
+void ColorGenerator::simpleAVX(int* matrix, int end_index)
+{
+	for (int index = 0; index < t_pool->size; ++index)
+	{
+		t_pool->addJob([=]() {simpleAVXThread(index * 8, (t_pool->size) * 8, matrix, end_index); });
+	}
+	t_pool->synchronize();
+}
+
 ////////////////////////////////////////////////////////////
 /// Histogram color generator
 ////////////////////////////////////////////////////////////
@@ -183,5 +242,17 @@ void ColorGenerator::generate(int* matrix, int matrix_width, int matrix_height, 
 	else
 	{
 		simple(matrix, matrix_width, matrix_height);
+	}
+}
+
+void ColorGenerator::generateAVX(int* matrix, int matrix_width, int matrix_height, int n)
+{
+	if (mode == Generators::HISTOGRAM)
+	{
+		histogram(matrix, matrix_width, matrix_height, n);
+	}
+	else
+	{
+		simpleAVX(matrix, matrix_width * matrix_height);
 	}
 }

@@ -39,8 +39,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-unsigned int WINDOW_WIDTH = 1280;
-unsigned int WINDOW_HEIGHT = 720;
+unsigned int WINDOW_WIDTH = 1920;
+unsigned int WINDOW_HEIGHT = 1080;
 
 ////////////////////////////////////////////////////////////
 /// OpenGL resources
@@ -58,6 +58,7 @@ Fractal fractal;
 ColorGenerator cg;
 
 bool update_fractal = false; // Keeps track of when the fractal has changed, so that we dont render the same fractal multiple times
+bool use_AVX = true;
 
 ////////////////////////////////////////////////////////////
 /// Timing resources
@@ -134,7 +135,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
     // Switch from standard instructions to AVX2
     else if (key == GLFW_KEY_I && action == GLFW_PRESS)
-        fractal.switchInstruction();
+        use_AVX = !use_AVX;
 
     // Change color generation mode
     else if (key == GLFW_KEY_C && action == GLFW_PRESS)
@@ -209,7 +210,7 @@ void render()
     GLubyte* ptr = (GLubyte*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
 
     int* ptr_i = (int*)ptr;
-    fractal.generate(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg);
+    fractal.generate(ptr_i, WINDOW_WIDTH, WINDOW_HEIGHT, cg, use_AVX);
     
     glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
 

@@ -25,7 +25,6 @@ std::chrono::nanoseconds dur;
 Fractal::Fractal()
 {
 	fractal_mode = FractalSets::MANDELBROT;
-	instruction_mode = InstructionModes::AVX;
 
 	mandelbrot_x_min				= mandelbrot_x_min_DEFAULT;
 	mandelbrot_x_max				= mandelbrot_x_max_DEFAULT;
@@ -251,22 +250,6 @@ void Fractal::reset()
 /// Mandelbrot Set Functions
 ////////////////////////////////////////////////////////////
 
-/*
-*	Adds jobs to the ThreadPool job queue that will fill the supplied matrix with Mandelbrot set iteration values.
-*/
-void Fractal::mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height)
-{
-	for (int index = 0; index < t_pool->size; ++index)
-	{
-		if (instruction_mode == InstructionModes::STANDARD)
-			t_pool->addJob([=]() {mandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
-		else
-			t_pool->addJob([=]() {mandelbrotAVXThread(index * 4, matrix, matrix_width, matrix_height, t_pool->size); });
-	}
-	t_pool->synchronize();
-}
-
-
 //Mandelbrot set functions for standard instruction set
 
 void Fractal::mandelbrotScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y)
@@ -336,6 +319,18 @@ void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int mat
 	{
 		matrix[i] = mandelbrotSetAtPoint(i % matrix_width, i / matrix_width, matrix_width, matrix_height);
 	}
+}
+
+/*
+*	Adds jobs to the ThreadPool job queue that will fill the supplied matrix with Mandelbrot set iteration values.
+*/
+void Fractal::mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height)
+{
+	for (int index = 0; index < t_pool->size; ++index)
+	{
+		t_pool->addJob([=]() {mandelbrotThread(index, matrix, matrix_width, matrix_height, t_pool->size); });
+	}
+	t_pool->synchronize();
 }
 
 
@@ -495,6 +490,15 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 	}
 }
 
+void Fractal::mandelbrotMatrixAVX(int* matrix, int matrix_width, int matrix_height)
+{
+	for (int index = 0; index < t_pool->size; ++index)
+	{
+		t_pool->addJob([=]() {mandelbrotAVXThread(index * 4, matrix, matrix_width, matrix_height, t_pool->size); });
+	}
+	t_pool->synchronize();
+}
+
 ////////////////////////////////////////////////////////////
 /// Julia Set Functions
 ////////////////////////////////////////////////////////////
@@ -557,19 +561,7 @@ void Fractal::switchFractal()
 	fractal_mode = (FractalSets)((static_cast<int>(fractal_mode) + 1) % static_cast<int>(FractalSets::LAST));
 }
 
-void Fractal::switchInstruction()
-{
-	instruction_mode = (InstructionModes)((static_cast<int>(instruction_mode) + 1) % static_cast<int>(InstructionModes::LAST));
-
-#ifdef PRINT_INFO
-	if (static_cast<int>(instruction_mode) == 0)
-		std::cout << "Using standard instructions:" << std::endl;
-	else
-		std::cout << "Using AVX:" << std::endl;
-#endif
-}
-
-void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg)
+void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX)
 {
 #ifdef PRINT_INFO
 	std::cout << "Fractal generation: ";
@@ -580,7 +572,10 @@ void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGe
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
 		n = mandelbrot_max_iter;
-		mandelbrotMatrix(matrix, matrix_width, matrix_height);
+		if (AVX)
+			mandelbrotMatrixAVX(matrix, matrix_width, matrix_height);
+		else
+			mandelbrotMatrix(matrix, matrix_width, matrix_height);
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
@@ -594,7 +589,10 @@ void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGe
 	START_TIMER
 #endif
 
-	cg.generate(matrix, matrix_width, matrix_height, n);
+	if (AVX)
+		cg.generateAVX(matrix, matrix_width, matrix_height, n);
+	else
+		cg.generate(matrix, matrix_width, matrix_height, n);
 
 #ifdef PRINT_INFO
 	END_TIMER
