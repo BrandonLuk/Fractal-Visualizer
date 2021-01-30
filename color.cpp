@@ -107,7 +107,9 @@ void ColorGenerator::simple(int* matrix, int matrix_width, int matrix_height)
 }
 
 /*
-* Perform simple iteratin value to color conversion using AVX instructions.
+* Perform simple iteration value to color conversion using AVX instructions.
+* All operations can be safely performed with 32-bit ints and floats, so we can perform 8 conversions per pass with
+* 256-bit AVX2 registers.
 */
 void ColorGenerator::simpleAVXThread(int index, int stride, int* matrix, int end_index)
 {

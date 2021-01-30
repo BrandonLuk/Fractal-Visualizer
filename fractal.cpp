@@ -299,8 +299,38 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 	long double x_2 = 0;
 	long double y_2 = 0;
 
+	unsigned int period_check = 10;
+	long double check_x = x_0;
+	long double check_y = y_0;
+
 	int iter = 0;
-	while (x_2 + y_2 <= mandelbrot_radius && iter < mandelbrot_max_iter)
+
+
+	while (iter < mandelbrot_max_iter)
+	{
+		for (; iter < period_check; ++iter)
+		{
+			y_1 = (x_1 + x_1) * y_1 + y_0;
+			x_1 = x_2 - y_2 + x_0;
+			x_2 = x_1 * x_1;
+			y_2 = y_1 * y_1;
+
+			if (x_2 + y_2 > mandelbrot_radius)
+				return iter;
+			if (x_2 == check_x && y_2 == check_y)
+				return 0;
+		}
+		
+		check_x = x_2;
+		check_y = y_2;
+		period_check += period_check;
+		if (period_check > mandelbrot_max_iter)
+			period_check = mandelbrot_max_iter;
+	}
+	return 0;
+
+	// Loop without period checking
+	/*while (x_2 + y_2 <= mandelbrot_radius && iter < mandelbrot_max_iter)
 	{
 		y_1 = (x_1 + x_1) * y_1 + y_0;
 		x_1 = x_2 - y_2 + x_0;
@@ -310,7 +340,7 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 	}
 	if (iter == mandelbrot_max_iter)
 		return 0;
-	return iter;
+	return iter;*/
 }
 
 void Fractal::mandelbrotThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
@@ -396,8 +426,9 @@ bool Fractal::mandelbrotPruneAVX(const __m256d& _x, const __m256d& _y)
 */
 void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
 {
-	__m256d _index, _radius, _max_x, _max_y, _m_x_min, _m_y_min, _m_x_subbed, _m_y_subbed, _m_x_offset, _m_y_offset, _m_zoom, _x_0, _y_0, _x_1, _y_1, _x_2, _y_2, _mask1, _index_add_mask;
-	__m256i _iter, _max_iter, _increment, _one, _mask2;
+	__m256d _index, _radius, _max_x, _max_y, _m_x_min, _m_y_min, _m_x_subbed, _m_y_subbed, _m_x_offset, _m_y_offset, _m_zoom, _x_0, _y_0, _x_1, _y_1, _x_2, _y_2, _mask1, _index_add_mask, _check_x, _check_y;
+	__m256i _iter, _max_iter, _active, _one, _mask2;
+	int period, period_check;
 
 
 	_radius		= _mm256_set1_pd(mandelbrot_radius);
@@ -447,39 +478,89 @@ void Fractal::mandelbrotAVXThread(int index, int* matrix, int matrix_width, int 
 		_y_0 = _mm256_add_pd(_y_0, _m_y_offset);
 		_y_0 = _mm256_div_pd(_y_0, _m_zoom);
 
+		// Check to see if each of these 4 points are guaranteed to be in the cardiod or the bulb. If so, set them all to 0 and assign.
 		if (mandelbrotPruneAVX(_x_0, _y_0))
 		{
 			_iter = _mm256_set1_epi64x(0);
 			goto assign;
 		}
 
-
 		_x_1 = _mm256_set1_pd(0.0);
 		_y_1 = _mm256_set1_pd(0.0);
 		_x_2 = _mm256_set1_pd(0.0);
 		_y_2 = _mm256_set1_pd(0.0);
-		_iter = _mm256_set1_epi64x(1);
+		_iter = _mm256_set1_epi64x(0);
+		_active = _mm256_set1_epi64x(-1);
+		period = 10;
+		period_check = 0;
+
+		_check_x = _x_0;
+		_check_y = _y_0;
 
 	loop:
+		for (; period_check < period; ++period_check)
+		{
+			_y_1 = _mm256_fmadd_pd(_mm256_add_pd(_x_1, _x_1), _y_1, _y_0);  // y_1 = (x_1 + x_1) * y_1 + y_0;
+			_x_1 = _mm256_add_pd(_mm256_sub_pd(_x_2, _y_2), _x_0);			// x_1 = x_2 - y_2 + x_0;
+			_x_2 = _mm256_mul_pd(_x_1, _x_1);								// x_2 = x_1 * x_1;
+			_y_2 = _mm256_mul_pd(_y_1, _y_1);								// y_2 = y_1 * y_1;
 
-		_y_1 = _mm256_fmadd_pd(_mm256_add_pd(_x_1, _x_1), _y_1, _y_0);  // y_1 = (x_1 + x_1) * y_1 + y_0;
-		_x_1 = _mm256_add_pd(_mm256_sub_pd(_x_2, _y_2), _x_0);			// x_1 = x_2 - y_2 + x_0;
-		_x_2 = _mm256_mul_pd(_x_1, _x_1);								// x_2 = x_1 * x_1;
-		_y_2 = _mm256_mul_pd(_y_1, _y_1);								// y_2 = y_1 * y_1;
 
-		_mask1 = _mm256_cmp_pd(_mm256_add_pd(_x_2, _y_2), _radius, _CMP_LE_OQ);  // is x_2 + x_2 <= mandelbrot_radius?
-		_mask2 = _mm256_cmpgt_epi64(_max_iter, _iter);							 // is iter < max_iter?
-		_mask2 = _mm256_and_si256(_mask2, _mm256_castpd_si256(_mask1));			 // AND the two masks together, since we dont want to increment if either of the two conditions above are false
-		_increment = _mm256_and_si256(_one, _mask2);
-		_iter = _mm256_add_epi64(_iter, _increment);
-		if (_mm256_movemask_pd(_mm256_castsi256_pd(_mask2)) > 0)		// Loop if any of the 4 values in the vector dont violate either mask condition
-			goto loop;
+			//if (x_2 + y_2 <= mandelbrot_radius)
+			_mask1 = _mm256_cmp_pd(_mm256_add_pd(_x_2, _y_2), _radius, _CMP_LE_OQ);
+			// Each point that violates the above is marked as inactive so that its iteration count it not incremented anymore
+			_active = _mm256_and_si256(_active, _mm256_castpd_si256(_mask1));
+
+			//if (x_2 != check_x || y_2 != check_y)
+			_mask1 = _mm256_or_pd(_mm256_cmp_pd(_x_2, _check_x, _CMP_NEQ_OQ), _mm256_cmp_pd(_y_2, _check_y, _CMP_NEQ_OQ));
+			// Each point that violates the above should have its iteration count set to 0, but only if that point is still active
+			_iter = _mm256_and_si256(_iter, _mm256_or_si256(_mm256_castpd_si256(_mask1), _mm256_xor_si256(_active, _mm256_set1_epi64x(-1))));
+			// Set the points that violate the above as inactive
+			_active = _mm256_and_si256(_active, _mm256_castpd_si256(_mask1));
+			
+
+			// Check to see if all of the points are inactive. If they are we are done and will jump to assign
+			if (_mm256_movemask_pd(_mm256_castsi256_pd(_active)) == 0)
+				goto assign;
+			// At least one point is still active, so we increment
+			_iter = _mm256_add_epi64(_iter, _mm256_and_si256(_one, _active)); // one AND active
+		}
+
+		// If any points iteration count has reached the max we are done
+		_mask2 = _mm256_cmpeq_epi64(_iter, _max_iter);
+		if (_mm256_movemask_pd(_mm256_castsi256_pd(_mask2)) > 0)
+			goto assign;
+
+		_check_x = _x_2;
+		_check_y = _y_2;
+		period += period;
+		if (period > mandelbrot_max_iter)
+			period = mandelbrot_max_iter;
+		goto loop;
+
+	// Loop without period checking
+	//loop:
+
+	//	_y_1 = _mm256_fmadd_pd(_mm256_add_pd(_x_1, _x_1), _y_1, _y_0);  // y_1 = (x_1 + x_1) * y_1 + y_0;
+	//	_x_1 = _mm256_add_pd(_mm256_sub_pd(_x_2, _y_2), _x_0);			// x_1 = x_2 - y_2 + x_0;
+	//	_x_2 = _mm256_mul_pd(_x_1, _x_1);								// x_2 = x_1 * x_1;
+	//	_y_2 = _mm256_mul_pd(_y_1, _y_1);								// y_2 = y_1 * y_1;
+
+	//	_mask1 = _mm256_cmp_pd(_mm256_add_pd(_x_2, _y_2), _radius, _CMP_LE_OQ);  // is x_2 + x_2 <= mandelbrot_radius?
+	//	_mask2 = _mm256_cmpgt_epi64(_max_iter, _iter);							 // is iter < max_iter?
+	//	_mask2 = _mm256_and_si256(_mask2, _mm256_castpd_si256(_mask1));			 // AND the two masks together, since we dont want to increment if either of the two conditions above are false
+	//	_increment = _mm256_and_si256(_one, _mask2);
+	//	_iter = _mm256_add_epi64(_iter, _increment);
+	//	if (_mm256_movemask_pd(_mm256_castsi256_pd(_mask2)) > 0)		// Loop if any of the 4 values in the vector dont violate either mask condition
+	//		goto loop;
+
+
+
+	assign:
 
 		// If any of the iteration values = max_iter, set them to 0
 		_mask2 = _mm256_cmpeq_epi64(_iter, _max_iter);
 		_iter = _mm256_andnot_si256(_mask2, _iter);
-
-	assign:
 
 		// Extract vector values
 		// These iter values should never get too high, so casting from 64-bit int to 32-bit int should not be a problem
@@ -564,6 +645,10 @@ void Fractal::switchFractal()
 void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX)
 {
 #ifdef PRINT_INFO
+	if (AVX)
+		std::cout << "Using AVX instructions..." << std::endl;
+	else
+		std::cout << "Using standard instructions..." << std::endl;
 	std::cout << "Fractal generation: ";
 	START_TIMER
 #endif
