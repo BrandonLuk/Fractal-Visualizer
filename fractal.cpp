@@ -299,7 +299,7 @@ int Fractal::mandelbrotSetAtPoint(int x, int y, int max_x, int max_y)
 	long double x_2 = 0;
 	long double y_2 = 0;
 
-	unsigned int period_check = 10;
+	int period_check = 10;
 	long double check_x = x_0;
 	long double check_y = y_0;
 
@@ -614,9 +614,39 @@ int Fractal::juliaSetAtPoint(int x, int y, int max_x, int max_y)
 	long double zy;
 	juliaScale(zx, zy, x, y, max_x, max_y);
 
+
+	int period_check = 10;
+	long double check_zx = zx;
+	long double check_zy = zy;
+
+
 	int iter = 0;
 
 	long double temp;
+	while (iter < julia_max_iter)
+	{
+		for (; iter < period_check; ++iter)
+		{
+			temp = zx * zx - zy * zy;
+			zy = 2 * zx * zy + julia_complex_param.imag();
+			zx = temp + julia_complex_param.real();
+
+			if (zx * zx + zy * zy >= (julia_escape_radius * julia_escape_radius))
+				return iter;
+			if (zx == check_zx && zy == check_zy)
+				return 0;
+		}
+
+		check_zx = zx;
+		check_zy = zy;
+		period_check += period_check;
+		if (period_check > julia_max_iter)
+			period_check = julia_max_iter;
+	}
+	return 0;
+
+	// Loop without period checking
+	/*long double temp;
 	while (zx * zx + zy * zy < (julia_escape_radius * julia_escape_radius) && iter < julia_max_iter)
 	{
 		temp = zx * zx - zy * zy;
@@ -629,7 +659,136 @@ int Fractal::juliaSetAtPoint(int x, int y, int max_x, int max_y)
 	if (iter == julia_max_iter)
 		return 0;
 	else
-		return iter;
+		return iter;*/
+}
+
+
+void Fractal::juliaAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride)
+{
+	__m256d _index, _radius, _radius_sq, _max_x, _max_y, _x_offset, _y_offset, _zoom, _imag, _real, _zx, _zy, _temp, _mask1, _index_add_mask, _check_zx, _check_zy, _two;
+	__m256i _iter, _max_iter, _active, _one, _mask2;
+	int period, period_check;
+
+
+	_radius = _mm256_set1_pd(julia_escape_radius);
+	_radius_sq = _mm256_mul_pd(_radius, _radius);
+	_max_x = _mm256_set1_pd(static_cast<long double>(matrix_width));
+	_max_y = _mm256_set1_pd(static_cast<long double>(matrix_height));
+	_x_offset = _mm256_set1_pd(julia_x_offset);
+	_y_offset = _mm256_set1_pd(julia_y_offset);
+	_zoom = _mm256_set1_pd(julia_zoom);
+	_imag = _mm256_set1_pd(julia_complex_param.imag());
+	_real = _mm256_set1_pd(julia_complex_param.real());
+
+	_index_add_mask = _mm256_set_pd(0.0, 1.0, 2.0, 3.0);
+
+	_one = _mm256_set1_epi64x(1);
+	_two = _mm256_set1_pd(2.0);
+	_max_iter = _mm256_set1_epi64x(julia_max_iter);
+
+	for (int i = index; i < (matrix_width * matrix_height); i += (stride * 4))
+	{
+		_index = _mm256_set1_pd(static_cast<long double>(i));
+		_index = _mm256_add_pd(_index, _index_add_mask);
+
+		// Convert from flat index to 2-D x and y
+		_zx = _mm256_div_pd(_index, _max_x);
+		_zx = _mm256_floor_pd(_zx);
+		_zx = _mm256_mul_pd(_max_x, _zx);
+		_zx = _mm256_sub_pd(_index, _zx);
+
+		_zy = _mm256_div_pd(_index, _max_x);
+		_zy = _mm256_floor_pd(_zy);
+
+		// Scaling from window pixels to Cartesian X and Y
+		// -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<long double>(x) / max_x));
+		_zx = _mm256_div_pd(_zx, _max_x);
+		_zx = _mm256_mul_pd(_zx, _radius);
+		_zx = _mm256_fmsub_pd(_zx, _two, _radius);
+		// -julia_escape_radius + (2.0 * julia_escape_radius * (static_cast<long double>(y) / max_y));
+		_zy = _mm256_div_pd(_zy, _max_y);
+		_zy = _mm256_mul_pd(_zy, _radius);
+		_zy = _mm256_fmsub_pd(_zy, _two, _radius);
+
+		// (scaled_x + julia_x_offset) / julia_zoom;
+		_zx = _mm256_add_pd(_zx, _x_offset);
+		_zx = _mm256_div_pd(_zx, _zoom);
+		// (scaled_y + julia_y_offset) / julia_zoom / (static_cast<long double>(max_x) / max_y);
+		_zy = _mm256_add_pd(_zy, _y_offset);
+		_zy = _mm256_div_pd(_zy, _zoom);
+		_zy = _mm256_div_pd(_zy, _mm256_div_pd(_max_x, _max_y));
+		
+
+
+		_iter = _mm256_set1_epi64x(0);
+		_active = _mm256_set1_epi64x(-1);
+		period = 10;
+		period_check = 0;
+
+		_check_zx = _zx;
+		_check_zy = _zy;
+
+	loop:
+		for (; period_check < period; ++period_check)
+		{
+			_temp = _mm256_fmsub_pd(_zx, _zx, _mm256_mul_pd(_zy, _zy));		// temp = zx * zx - zy * zy;
+			_zy = _mm256_fmadd_pd(_two, _mm256_mul_pd(_zx, _zy), _imag);	//zy = 2 * zx * zy + julia_complex_param.imag();
+			_zx = _mm256_add_pd(_temp, _real);
+
+			//if (zx * zx + zy * zy < (julia_escape_radius * julia_escape_radius))
+			_mask1 = _mm256_cmp_pd(_mm256_fmadd_pd(_zx, _zx, _mm256_mul_pd(_zy, _zy)), _radius_sq, _CMP_LT_OQ);
+			// Each point that violates the above is marked as inactive so that its iteration count it not incremented anymore
+			_active = _mm256_and_si256(_active, _mm256_castpd_si256(_mask1));
+
+			//if (zx != check_zx || zy != check_zy)
+			_mask1 = _mm256_or_pd(_mm256_cmp_pd(_zx, _check_zx, _CMP_NEQ_OQ), _mm256_cmp_pd(_zy, _check_zy, _CMP_NEQ_OQ));
+			// Each point that violates the above should have its iteration count set to 0, but only if that point is still active
+			_iter = _mm256_and_si256(_iter, _mm256_or_si256(_mm256_castpd_si256(_mask1), _mm256_xor_si256(_active, _mm256_set1_epi64x(-1))));
+			// Set the points that violate the above as inactive
+			_active = _mm256_and_si256(_active, _mm256_castpd_si256(_mask1));
+
+
+			// Check to see if all of the points are inactive. If they are we are done and will jump to assign
+			if (_mm256_movemask_pd(_mm256_castsi256_pd(_active)) == 0)
+				goto assign;
+			// At least one point is still active, so we increment
+			_iter = _mm256_add_epi64(_iter, _mm256_and_si256(_one, _active)); // one AND active
+		}
+
+		// If any points iteration count has reached the max we are done
+		_mask2 = _mm256_cmpeq_epi64(_iter, _max_iter);
+		if (_mm256_movemask_pd(_mm256_castsi256_pd(_mask2)) > 0)
+			goto assign;
+
+		_check_zx = _zx;
+		_check_zy = _zy;
+		period += period;
+		if (period > julia_max_iter)
+			period = julia_max_iter;
+		goto loop;
+
+	assign:
+
+		// If any of the iteration values = max_iter, set them to 0
+		_mask2 = _mm256_cmpeq_epi64(_iter, _max_iter);
+		_iter = _mm256_andnot_si256(_mask2, _iter);
+
+		// Extract vector values
+		// These iter values should never get too high, so casting from 64-bit int to 32-bit int should not be a problem
+		matrix[i] = static_cast<int>(_iter.m256i_i64[3]);
+		matrix[i + 1] = static_cast<int>(_iter.m256i_i64[2]);
+		matrix[i + 2] = static_cast<int>(_iter.m256i_i64[1]);
+		matrix[i + 3] = static_cast<int>(_iter.m256i_i64[0]);
+	}
+}
+
+void Fractal::juliaMatrixAVX(int* matrix, int matrix_width, int matrix_height)
+{
+	for (int index = 0; index < t_pool->size; ++index)
+	{
+		t_pool->addJob([=]() {juliaAVXThread(index * 4, matrix, matrix_width, matrix_height, t_pool->size); });
+	}
+	t_pool->synchronize();
 }
 
 
@@ -665,7 +824,10 @@ void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGe
 	else if (fractal_mode == FractalSets::JULIA)
 	{
 		n = julia_max_iter;
-		juliaMatrix(matrix, matrix_width, matrix_height);
+		if (AVX)
+			juliaMatrixAVX(matrix, matrix_width, matrix_height);
+		else
+			juliaMatrix(matrix, matrix_width, matrix_height);
 	}
 
 #ifdef PRINT_INFO

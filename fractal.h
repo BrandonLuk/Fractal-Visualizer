@@ -83,6 +83,8 @@ class Fractal
 	void juliaThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
 	int juliaSetAtPoint(int x, int y, int max_x, int max_y);
 
+	void juliaAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
+
 public:
 
 	enum class FractalSets { MANDELBROT = 0, JULIA, LAST} fractal_mode;
@@ -126,6 +128,7 @@ public:
 	void mandelbrotMatrix(int* matrix, int matrix_width, int matrix_height);
 	void mandelbrotMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 	void juliaMatrix(int* matrix, int matrix_width, int matrix_height);
+	void juliaMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 
 	void switchFractal();
 	void generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX);
