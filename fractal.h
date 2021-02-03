@@ -43,7 +43,6 @@ constexpr long double julia_y_offset_DEFAULT				=  0.0;
 constexpr long double julia_pan_increment_DEFAULT			=  0.8;
 constexpr long double julia_zoom_DEFAULT					=  1.0;
 constexpr long double julia_zoom_multiplier_DEFAULT			=  0.1;
-constexpr long double  julia_n_DEFAULT						=  2;
 constexpr int julia_max_iter_DEFAULT						=  200;
 constexpr float julia_max_iter_multiplier_DEFAULT			=  1.5;
 constexpr long double julia_escape_radius_DEFAULT			=  2;
@@ -57,6 +56,16 @@ constexpr long double julia_escape_radius_DEFAULT			=  2;
 //static std::complex<long double> julia_complex_param_DEFAULT = std::complex<long double>(-0.8, 0.156);
 //static std::complex<long double> julia_complex_param_DEFAULT = std::complex<long double>(-0.7269, 0.1889);
 static std::complex<long double> julia_complex_param_DEFAULT = std::complex<long double>(0.0, -0.8);
+
+/* Burning ship */
+constexpr long double bship_x_offset_DEFAULT				= 0.0;
+constexpr long double bship_y_offset_DEFAULT				= 0.0;
+constexpr long double bship_pan_increment_DEFAULT			= 0.8;
+constexpr long double bship_zoom_DEFAULT					= 1.0;
+constexpr long double bship_zoom_multiplier_DEFAULT			= 0.1;
+constexpr int bship_max_iter_DEFAULT						= 200;
+constexpr float bship_max_iter_multiplier_DEFAULT			= 1.5;
+constexpr long double bship_radius_DEFAULT					= 2;
 
 
 /////////////////////////////////////////////////////////////
@@ -82,13 +91,18 @@ class Fractal
 	void juliaScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y);
 	void juliaThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
 	int juliaSetAtPoint(int x, int y, int max_x, int max_y);
-
 	void juliaAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
+
+	void bshipScale(long double& scaled_x, long double& scaled_y, int x, int y, int max_x, int max_y);
+	void bshipThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
+	int bshipAtPoint(int x, int y, int max_x, int max_y);
+	void bshipAVXThread(int index, int* matrix, int matrix_width, int matrix_height, int stride);
 
 public:
 
-	enum class FractalSets { MANDELBROT = 0, JULIA, LAST} fractal_mode;
+	enum class FractalSets { MANDELBROT = 0, JULIA, BSHIP, LAST} fractal_mode;
 
+	// Mandelbrot
 	long double mandelbrot_x_min;
 	long double mandelbrot_x_max;
 	long double mandelbrot_y_min;
@@ -102,16 +116,27 @@ public:
 	int mandelbrot_max_iter;
 	float mandelbrot_max_iter_multiplier;
 
+	// Julia
 	long double julia_x_offset;
 	long double julia_y_offset;
 	long double julia_pan_increment;
 	long double julia_zoom;
 	long double julia_zoom_multiplier;
-	long double julia_n;
 	int julia_max_iter;
 	float julia_max_iter_multiplier;
-	long double julia_escape_radius;
+	long double julia_radius;
 	std::complex<long double> julia_complex_param;
+
+	// Burning ship
+	long double bship_x_offset;
+	long double bship_y_offset;
+	long double bship_pan_increment;
+	long double bship_zoom;
+	long double bship_zoom_multiplier;
+	int bship_max_iter;
+	float bship_max_iter_multiplier;
+	long double bship_radius;
+
 
 	Fractal();
 
@@ -129,6 +154,8 @@ public:
 	void mandelbrotMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 	void juliaMatrix(int* matrix, int matrix_width, int matrix_height);
 	void juliaMatrixAVX(int* matrix, int matrix_width, int matrix_height);
+	void bshipMatrix(int* matrix, int matrix_width, int matrix_height);
+	void bshipMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 
 	void switchFractal();
 	void generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX);
