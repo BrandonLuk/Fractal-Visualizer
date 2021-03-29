@@ -26,12 +26,7 @@ class ColorGenerator
 		Color operator*(double multiplier);
 	};
 
-	enum class Generators { SIMPLE = 0, HISTOGRAM, LAST} mode;
-
 	ThreadPool* t_pool;
-
-	Color strong;
-	Color weak;
 
 	void simpleThread(int index, int stride, int* matrix, int matrix_width, int matrix_height);
 	void simple(int* matrix, int matrix_width, int matrix_height);
@@ -42,8 +37,18 @@ class ColorGenerator
 	void histogram(int* matrix, int matrix_width, int matrix_height, int n);
 
 public:
+	enum class Generators { SIMPLE = 0, HISTOGRAM, LAST } color_mode;
+
+	float simple_red_modifier;
+	float simple_green_modifier;
+	float simple_blue_modifier;
+
+	Color strong;
+	Color weak;
+
 	ColorGenerator();
 	void switchMode();
+	void selectMode(int mode);
 	void generate(int* matrix, int matrix_width, int matrix_height, int n);
 	void generateAVX(int* matrix, int matrix_width, int matrix_height, int n);
 };

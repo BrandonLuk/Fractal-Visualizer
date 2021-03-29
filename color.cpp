@@ -27,7 +27,12 @@ uint8_t sat_sub_u8b(uint8_t l, uint8_t r)
 
 ColorGenerator::ColorGenerator()
 {
-	mode = Generators::SIMPLE;
+	color_mode = Generators::SIMPLE;
+
+	simple_red_modifier = 1.246f;
+	simple_green_modifier = 0.396f;
+	simple_blue_modifier = 3.141f;
+
 	weak = Color{ 50, 100, 25 };
 	strong = Color{ 255, 255, 255 };
 
@@ -36,7 +41,12 @@ ColorGenerator::ColorGenerator()
 
 void ColorGenerator::switchMode()
 {
-	mode = (Generators)((static_cast<int>(mode) + 1) % static_cast<int>(Generators::LAST));
+	color_mode = (Generators)((static_cast<int>(color_mode) + 1) % static_cast<int>(Generators::LAST));
+}
+
+void ColorGenerator::selectMode(int mode)
+{
+	color_mode = (Generators)((static_cast<int>(mode)) % static_cast<int>(Generators::LAST));
 }
 
 // To pack chars into a 32-bit int we use bit shifting.
@@ -85,12 +95,12 @@ void ColorGenerator::simpleThread(int index, int stride, int* matrix, int matrix
 	{
 		a = static_cast<double>(matrix[i]);
 		// 255 -> max value of an unsigned char
-		// The sine function can return negative values, so clamp its result to [0.0, 1.0] by
+		// The sine function can return negative values, so map its natural codomain of [-1.0, 1.0] to [0.0, 1.0] by
 		// multiplying by 0.5 then adding 0.5.
-		// The float literals inside the sine function are arbitrary and can be changed to alter the color palette.
-		r = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 1.246f) + 0.5f));
-		g = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 0.396f) + 0.5f));
-		b = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + 3.188f) + 0.5f));
+		// The float values inside the sine function are arbitrary and can be changed to alter the color palette.
+		r = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + simple_red_modifier) + 0.5f));
+		g = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + simple_green_modifier) + 0.5f));
+		b = static_cast<unsigned char>(255 * (0.5f * std::sin(a * 0.1f + simple_blue_modifier) + 0.5f));
 
 		// Pack the unsigned chars into an int for OpenGL
 		matrix[i] = int(b << 16 | g << 8 | r);
@@ -119,9 +129,9 @@ void ColorGenerator::simpleAVXThread(int index, int stride, int* matrix, int end
 	_uchar_max	= _mm256_set1_ps(255.0f);
 	_half		= _mm256_set1_ps(0.5f);
 	_tenth		= _mm256_set1_ps(0.1f);
-	_r_mod		= _mm256_set1_ps(1.246f);
-	_g_mod		= _mm256_set1_ps(0.396f);
-	_b_mod		= _mm256_set1_ps(3.188f);
+	_r_mod		= _mm256_set1_ps(simple_red_modifier);
+	_g_mod		= _mm256_set1_ps(simple_green_modifier);
+	_b_mod		= _mm256_set1_ps(simple_blue_modifier);
 
 	for (int i = index; i < end_index; i += stride)
 	{
@@ -237,7 +247,7 @@ void ColorGenerator::histogram(int* matrix, int matrix_width, int matrix_height,
 
 void ColorGenerator::generate(int* matrix, int matrix_width, int matrix_height, int n)
 {
-	if (mode == Generators::HISTOGRAM)
+	if (color_mode == Generators::HISTOGRAM)
 	{
 		histogram(matrix, matrix_width, matrix_height, n);
 	}
@@ -249,7 +259,7 @@ void ColorGenerator::generate(int* matrix, int matrix_width, int matrix_height, 
 
 void ColorGenerator::generateAVX(int* matrix, int matrix_width, int matrix_height, int n)
 {
-	if (mode == Generators::HISTOGRAM)
+	if (color_mode == Generators::HISTOGRAM)
 	{
 		histogram(matrix, matrix_width, matrix_height, n);
 	}

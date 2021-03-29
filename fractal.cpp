@@ -933,64 +933,64 @@ void Fractal::followingZoom(int direction, int x_pos, int y_pos, int max_x, int 
 	}
 }
 
-void Fractal::panUp(long double delta)
+void Fractal::panUp()
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
-		mandelbrot_y_offset += mandelbrot_pan_increment * delta;
+		mandelbrot_y_offset += mandelbrot_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		julia_y_offset += julia_pan_increment * delta;
+		julia_y_offset += julia_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::BSHIP)
 	{
-		bship_y_offset -= bship_pan_increment * delta;
+		bship_y_offset -= bship_pan_increment;
 	}
 }
-void Fractal::panDown(long double delta)
+void Fractal::panDown()
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
-		mandelbrot_y_offset -= mandelbrot_pan_increment * delta;
+		mandelbrot_y_offset -= mandelbrot_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		julia_y_offset -= julia_pan_increment * delta;
+		julia_y_offset -= julia_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::BSHIP)
 	{
-		bship_y_offset += bship_pan_increment * delta;
+		bship_y_offset += bship_pan_increment;
 	}
 }
-void Fractal::panLeft(long double delta)
+void Fractal::panLeft()
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
-		mandelbrot_x_offset -= mandelbrot_pan_increment * delta;
+		mandelbrot_x_offset -= mandelbrot_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		julia_x_offset -= julia_pan_increment * delta;
+		julia_x_offset -= julia_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::BSHIP)
 	{
-		bship_x_offset -= bship_pan_increment * delta;
+		bship_x_offset -= bship_pan_increment;
 	}
 }
-void Fractal::panRight(long double delta)
+void Fractal::panRight()
 {
 	if (fractal_mode == FractalSets::MANDELBROT)
 	{
-		mandelbrot_x_offset += mandelbrot_pan_increment * delta;
+		mandelbrot_x_offset += mandelbrot_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::JULIA)
 	{
-		julia_x_offset += julia_pan_increment * delta;
+		julia_x_offset += julia_pan_increment;
 	}
 	else if (fractal_mode == FractalSets::BSHIP)
 	{
-		bship_x_offset += bship_pan_increment * delta;
+		bship_x_offset += bship_pan_increment;
 	}
 }
 
@@ -1073,9 +1073,14 @@ void Fractal::reset()
 	}
 }
 
-void Fractal::switchFractal()
+void Fractal::selectNextFractal()
 {
 	fractal_mode = (FractalSets)((static_cast<int>(fractal_mode) + 1) % static_cast<int>(FractalSets::LAST));
+}
+
+void Fractal::selectFractal(int fractal)
+{
+	fractal_mode = (FractalSets)((fractal) % static_cast<int>(FractalSets::LAST));
 }
 
 void Fractal::generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX)

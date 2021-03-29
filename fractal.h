@@ -33,14 +33,14 @@ constexpr long double mandelbrot_zoom_DEFAULT				=  1.0;
 constexpr long double mandelbrot_zoom_multiplier_DEFAULT	=  0.1;
 constexpr long double mandelbrot_x_offset_DEFAULT			=  0.0;
 constexpr long double mandelbrot_y_offset_DEFAULT			=  0.0;
-constexpr long double mandelbrot_pan_increment_DEFAULT		=  0.8;
+constexpr long double mandelbrot_pan_increment_DEFAULT		=  0.08;
 constexpr int mandelbrot_max_iter_DEFAULT					=  200;
 constexpr float mandelbrot_max_iter_multiplier_DEFAULT		=  1.5;
 
 /* Julia Set */
 constexpr long double julia_x_offset_DEFAULT				=  0.0;
 constexpr long double julia_y_offset_DEFAULT				=  0.0;
-constexpr long double julia_pan_increment_DEFAULT			=  0.8;
+constexpr long double julia_pan_increment_DEFAULT			=  0.08;
 constexpr long double julia_zoom_DEFAULT					=  1.0;
 constexpr long double julia_zoom_multiplier_DEFAULT			=  0.1;
 constexpr int julia_max_iter_DEFAULT						=  200;
@@ -60,7 +60,7 @@ static std::complex<long double> julia_complex_param_DEFAULT = std::complex<long
 /* Burning ship */
 constexpr long double bship_x_offset_DEFAULT				= 0.0;
 constexpr long double bship_y_offset_DEFAULT				= 0.0;
-constexpr long double bship_pan_increment_DEFAULT			= 0.8;
+constexpr long double bship_pan_increment_DEFAULT			= 0.08;
 constexpr long double bship_zoom_DEFAULT					= 1.0;
 constexpr long double bship_zoom_multiplier_DEFAULT			= 0.1;
 constexpr int bship_max_iter_DEFAULT						= 200;
@@ -113,7 +113,7 @@ public:
 	long double mandelbrot_x_offset;
 	long double mandelbrot_y_offset;
 	long double mandelbrot_pan_increment;
-	int mandelbrot_max_iter;
+	unsigned int mandelbrot_max_iter;
 	float mandelbrot_max_iter_multiplier;
 
 	// Julia
@@ -122,7 +122,7 @@ public:
 	long double julia_pan_increment;
 	long double julia_zoom;
 	long double julia_zoom_multiplier;
-	int julia_max_iter;
+	unsigned int julia_max_iter;
 	float julia_max_iter_multiplier;
 	long double julia_radius;
 	std::complex<long double> julia_complex_param;
@@ -133,7 +133,7 @@ public:
 	long double bship_pan_increment;
 	long double bship_zoom;
 	long double bship_zoom_multiplier;
-	int bship_max_iter;
+	unsigned int bship_max_iter;
 	float bship_max_iter_multiplier;
 	long double bship_radius;
 
@@ -142,10 +142,10 @@ public:
 
 	void stationaryZoom(int direction, int max_x, int max_y);
 	void followingZoom(int direction, int x_pos, int y_pos, int max_x, int max_y);
-	void panUp(long double delta);
-	void panDown(long double delta);
-	void panLeft(long double delta);
-	void panRight(long double delta);
+	void panUp();
+	void panDown();
+	void panLeft();
+	void panRight();
 	void increaseIterations();
 	void decreaseIterations();
 	void reset();
@@ -157,6 +157,7 @@ public:
 	void bshipMatrix(int* matrix, int matrix_width, int matrix_height);
 	void bshipMatrixAVX(int* matrix, int matrix_width, int matrix_height);
 
-	void switchFractal();
+	void selectNextFractal();
+	void selectFractal(int fractal);
 	void generate(int* matrix, int matrix_width, int matrix_height, ColorGenerator& cg, bool AVX);
 };
