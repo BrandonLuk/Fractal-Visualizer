@@ -13,22 +13,22 @@ Tested with a Ryzen 7 3700x, on Windows 10, compiled with MSVC
 
 # Current features
 Fractals:  
-  Mandelbrot
-  Julia
-  Burning Ship
+  Mandelbrot  
+  Julia  
+  Burning Ship  
   
  Color schemes:
-  Simple sine based color palette
-  Histogram
+  Simple sine based color palette  
+  Histogram  
   
 # Controls
-  W, A, S, D - Pan up, left, down, and right
-  Q, E - Zoom out and in, respectively
-  R - Reset fractal parameters(zoom, pan) to default 
-  F - Switch between fractal sets
-  I - Switch between standard and AVX instruction sets on applicable fractals
-  C - Switch between color sets
-  -, = - Decrease and increase fractal iteration limits, respectively
+  W, A, S, D - Pan up, left, down, and right  
+  Q, E - Zoom out and in, respectively  
+  R - Reset fractal parameters(zoom, pan) to default   
+  F - Switch between fractal sets  
+  I - Switch between standard and AVX instruction sets on applicable fractals  
+  C - Switch between color sets  
+  -, = - Decrease and increase fractal iteration limits, respectively  
   
   Mouse scrollwheen can be used to zoom in/out while following the mouse cursor
 
